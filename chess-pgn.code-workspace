@@ -3,5 +3,10 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"remote.autoForwardPorts": false,
+		"remote.autoForwardPortsSource": "output",
+		"workbench.colorTheme": "Abyss"
+	}
 }

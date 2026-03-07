@@ -38,6 +38,15 @@ export async function correctMove(payload: Record<string, unknown>) {
   return resp.json();
 }
 
+export async function suggestMove(verifiedMoves: string[], moveIndex: number, originalText: string) {
+  const resp = await fetch("/api/suggest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ verified_moves: verifiedMoves, move_index: moveIndex, original_text: originalText }),
+  });
+  return resp.json();
+}
+
 export async function fetchLegalMoves(verifiedMoves: string[], moveIndex: number) {
   const resp = await fetch("/api/legal-moves", {
     method: "POST",

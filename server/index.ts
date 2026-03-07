@@ -8,6 +8,7 @@ import { resolveMove } from "./routes/resolve.js";
 import { correctMove } from "./routes/correct.js";
 import { getLegalMoves } from "./routes/legal-moves.js";
 import { listSessions, getSession } from "./routes/sessions.js";
+import { suggestMove } from "./routes/suggest.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.post("/api/upload", upload.single("file"), uploadScoresheet);
 app.post("/api/resolve", resolveMove);
 app.post("/api/correct", correctMove);
 app.post("/api/legal-moves", getLegalMoves);
+app.post("/api/suggest", suggestMove);
 app.get("/api/sessions", listSessions);
 app.get("/api/session/:sessionId", getSession);
 
