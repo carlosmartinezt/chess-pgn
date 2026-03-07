@@ -3,3 +3,12 @@
 __pycache__/
 *.pyc
 
+# IDE / editor
+*.code-workspace
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
