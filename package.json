@@ -1,0 +1,43 @@
+{
+  "name": "chess-pgn",
+  "version": "1.0.0",
+  "description": "Web app that converts photos of handwritten chess scoresheets into valid PGN files for Lichess.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "vite build",
+    "start": "node --import tsx server/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/carlosmartinezt/chess-pgn.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/carlosmartinezt/chess-pgn/issues"
+  },
+  "homepage": "https://github.com/carlosmartinezt/chess-pgn#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "chess.js": "^1.4.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.3.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

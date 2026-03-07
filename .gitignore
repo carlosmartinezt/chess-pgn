@@ -12,6 +12,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Node
+node_modules/
+dist/
+
 # Session data
 sessions/
 corrections.json

@@ -189,7 +189,7 @@ def _try_move(board: chess.Board, move_data: dict, move_number: int, color: str)
     try:
         move = board.parse_san(normalized)
         board.push(move)
-        return {"status": "ok", "san": board.move_stack[-1].uci(), "san_pretty": board.san(board.move_stack[-1]) if False else _get_san(board, move)}
+        return {"status": "ok", "san": _get_san(board, move)}
     except (chess.InvalidMoveError, chess.IllegalMoveError, chess.AmbiguousMoveError, ValueError):
         pass
 
