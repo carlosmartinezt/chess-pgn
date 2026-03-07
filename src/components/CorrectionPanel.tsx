@@ -12,12 +12,15 @@ interface Props {
   moveIndex: number;
   sessionState: SessionState;
   orientation: "white" | "black";
+  totalMoves: number;
   onDone: (data: SessionData) => void;
+  onNext: () => void;
+  onPrev: () => void;
   onCancel: () => void;
   onLoading: (loading: boolean) => void;
 }
 
-export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, onCancel, onLoading }: Props) {
+export function CorrectionPanel({ moveIndex, sessionState, orientation, totalMoves, onDone, onNext, onPrev, onCancel, onLoading }: Props) {
   const [legalMoves, setLegalMoves] = useState<LegalMove[]>([]);
   const [fen, setFen] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
@@ -25,6 +28,8 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, 
   const moveNum = Math.floor(moveIndex / 2) + 1;
   const color = moveIndex % 2 === 0 ? "white" : "black";
   const currentMove = sessionState.confirmed_moves[moveIndex];
+  const isFirst = moveIndex === 0;
+  const isLast = moveIndex >= totalMoves - 1;
 
   useEffect(() => {
     fetchLegalMoves(sessionState.confirmed_moves, moveIndex).then((data) => {
@@ -60,9 +65,9 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, 
 
   return (
     <div id="correction-section">
-      <h2>Correct Move</h2>
+      <h2>Review Move</h2>
       <div className="ambiguity-info">
-        Move {moveNum} ({color}): <strong>{currentMove}</strong> — drag a piece on the board or tap a move below
+        Move {moveNum} ({color}): <strong>{currentMove}</strong>
       </div>
 
       {fen && (
@@ -76,6 +81,16 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, 
           />
         </div>
       )}
+
+      <div className="review-nav">
+        <button className="btn btn-secondary" onClick={onPrev} disabled={isFirst}>&larr; Prev</button>
+        <span className="review-nav-label">
+          {currentMove} — correct? Drag to fix, or skip
+        </span>
+        <button className="btn btn-secondary" onClick={isLast ? onCancel : onNext}>
+          {isLast ? "Done" : "Next \u2192"}
+        </button>
+      </div>
 
       <div className="correction-input-row">
         <input
@@ -97,15 +112,7 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, 
         </button>
       </div>
 
-      <div className="correction-candidates">
-        {legalMoves.map((m) => (
-          <button key={m.uci} className="correction-candidate" onClick={() => submit(m.san)}>
-            {m.san}
-          </button>
-        ))}
-      </div>
-
-      <button className="correction-dismiss" onClick={onCancel}>Cancel</button>
+      <button className="correction-dismiss" onClick={onCancel}>Close</button>
     </div>
   );
 }

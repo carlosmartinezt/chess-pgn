@@ -1,10 +1,6 @@
 .env
-.venv/
-__pycache__/
-*.pyc
 
 # IDE / editor
-*.code-workspace
 .vscode/
 .idea/
 
@@ -16,7 +12,6 @@ Thumbs.db
 node_modules/
 dist/
 
-# Session data
+# Session data (includes corrections.json)
 sessions/
-corrections.json
 

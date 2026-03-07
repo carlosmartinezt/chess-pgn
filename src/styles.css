@@ -296,6 +296,31 @@ h2 {
   margin-bottom: 0.75rem;
 }
 
+.review-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.review-nav-label {
+  font-size: 0.85rem;
+  color: #888;
+  text-align: center;
+  flex: 1;
+}
+
+.review-nav .btn-secondary {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.review-nav .btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .correction-input-row {
   display: flex;
   gap: 0.5rem;

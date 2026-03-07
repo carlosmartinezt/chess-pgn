@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_DIR = path.join(__dirname, "..", "..", "sessions");
-const CORRECTIONS_FILE = path.join(__dirname, "..", "..", "corrections.json");
+const CORRECTIONS_FILE = path.join(SESSIONS_DIR, "corrections.json");
 
 // Ensure sessions dir exists
 if (!fs.existsSync(SESSIONS_DIR)) {
@@ -51,7 +51,7 @@ export function loadSession(sessionId: string): Record<string, unknown> | null {
 
 export function listAllSessions(): Record<string, unknown>[] {
   if (!fs.existsSync(SESSIONS_DIR)) return [];
-  const files = fs.readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json"));
+  const files = fs.readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json") && f !== "corrections.json");
   const sessions: Record<string, unknown>[] = [];
 
   for (const f of files) {

@@ -62,8 +62,18 @@ export async function correctMove(req: Request, res: Response) {
   const player = color === "white" ? headers.white_player : headers.black_player;
   saveCorrection(oldSanPretty, correctedSan, positionFen, player || "unknown", moveNumber, color);
 
-  // Re-validate remaining
-  const allRawMoves = (transcription.moves as []) || [];
+  // Update the transcription with the corrected move so re-validation from scratch works
+  const allRawMoves = (transcription.moves as { number: number; white?: { text: string; confidence?: string; alternatives?: string[] }; black?: { text: string; confidence?: string; alternatives?: string[] } }[]) || [];
+  for (const entry of allRawMoves) {
+    if (entry.number === moveNumber) {
+      if (color === "white" && entry.white) {
+        entry.white = { text: correctedSan, confidence: "corrected" };
+      } else if (color === "black" && entry.black) {
+        entry.black = { text: correctedSan, confidence: "corrected" };
+      }
+      break;
+    }
+  }
   const remaining = buildRemainingFromIndex(allRawMoves, moveIndex + 1);
 
   let responseData: Record<string, unknown>;

@@ -110,7 +110,10 @@ export function Results({ data, sessionState, onUpdate, onLoading }: Props) {
           moveIndex={selectedMoveIndex}
           sessionState={sessionState}
           orientation={orientation}
+          totalMoves={(v.verified_moves || []).length}
           onDone={handleCorrectionDone}
+          onNext={() => setSelectedMoveIndex(Math.min(selectedMoveIndex + 1, (v.verified_moves || []).length - 1))}
+          onPrev={() => setSelectedMoveIndex(Math.max(selectedMoveIndex - 1, 0))}
           onCancel={() => setSelectedMoveIndex(null)}
           onLoading={onLoading}
         />
