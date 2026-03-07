@@ -245,6 +245,105 @@ h2 {
   color: #888;
 }
 
+/* Interactive moves */
+.moves-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  align-items: baseline;
+}
+
+.move-number {
+  color: #888;
+  font-size: 0.85rem;
+  margin-right: 0.1rem;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.move-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: #e0e0e0;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.9rem;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.move-btn:hover {
+  background: #1a2547;
+  border-color: #7c83ff;
+}
+
+.move-btn.selected {
+  background: #7c83ff;
+  color: #fff;
+}
+
+/* Correction panel */
+#correction-section {
+  background: #1a2547;
+  border: 1px solid #7c83ff;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+#correction-section h2 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.correction-input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.correction-input-row .text-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.correction-candidates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.correction-candidate {
+  background: #16213e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  color: #e0e0e0;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.correction-candidate:hover {
+  border-color: #7c83ff;
+  background: #1a2547;
+}
+
+.correction-dismiss {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0;
+}
+
+.correction-dismiss:hover {
+  color: #ccc;
+}
+
 /* Ambiguity */
 #ambiguity-section {
   background: #2d1b00;

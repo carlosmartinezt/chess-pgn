@@ -23,6 +23,7 @@ client = anthropic.Anthropic()
 
 SESSIONS_DIR = Path(__file__).parent / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
+CORRECTIONS_FILE = Path(__file__).parent / "corrections.json"
 
 
 def _sanitize_name(name: str) -> str:
@@ -49,7 +50,57 @@ def _save_session(filename: str, data: dict) -> str:
     filepath.write_text(json.dumps(data, indent=2))
     return filename.removesuffix(".json")
 
-SYSTEM_PROMPT = """You are a chess scoresheet transcription expert. You will be shown a photograph of a handwritten chess scoresheet.
+def _load_corrections() -> list[dict]:
+    """Load accumulated corrections."""
+    if CORRECTIONS_FILE.exists():
+        try:
+            return json.loads(CORRECTIONS_FILE.read_text())
+        except (json.JSONDecodeError, KeyError):
+            return []
+    return []
+
+
+def _save_correction(original: str, corrected: str, position_fen: str, player: str, move_number: int, color: str):
+    """Append a correction to the corrections file."""
+    corrections = _load_corrections()
+    corrections.append({
+        "original": original,
+        "corrected": corrected,
+        "position_fen": position_fen,
+        "player": player,
+        "move_number": move_number,
+        "color": color,
+        "timestamp": time.time(),
+    })
+    CORRECTIONS_FILE.write_text(json.dumps(corrections, indent=2))
+    logger.info("Correction saved: %s -> %s (move %d %s, player %s)", original, corrected, move_number, color, player)
+
+
+def _build_system_prompt() -> str:
+    """Build the system prompt, including learned corrections."""
+    corrections = _load_corrections()
+    corrections_section = ""
+    if corrections:
+        # Deduplicate and summarize
+        misreadings = {}
+        for c in corrections:
+            key = (c["original"], c["corrected"])
+            misreadings[key] = misreadings.get(key, 0) + 1
+        lines = []
+        for (orig, corr), count in sorted(misreadings.items(), key=lambda x: -x[1]):
+            times = f" ({count}x)" if count > 1 else ""
+            lines.append(f"- \"{orig}\" was actually \"{corr}\"{times}")
+        corrections_section = f"""
+
+IMPORTANT - Common misreadings from previous scoresheets (learn from these):
+{chr(10).join(lines)}
+
+Pay extra attention to distinguishing these characters in handwriting."""
+
+    return SYSTEM_PROMPT_BASE + corrections_section
+
+
+SYSTEM_PROMPT_BASE = """You are a chess scoresheet transcription expert. You will be shown a photograph of a handwritten chess scoresheet.
 
 Your job is to read the moves as accurately as possible and return them in a structured JSON format.
 
@@ -297,6 +348,7 @@ async def upload_scoresheet(
         content_type = "image/jpeg"
 
     # Send to Claude for transcription
+    logger.info("Sending image to Claude API (size=%d, type=%s)", len(contents), content_type)
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
@@ -320,9 +372,11 @@ async def upload_scoresheet(
                     ],
                 }
             ],
-            system=SYSTEM_PROMPT,
+            system=_build_system_prompt(),
         )
+        logger.info("Claude API response received, usage: %s", response.usage)
     except Exception as e:
+        logger.error("Claude API error: %s", e, exc_info=True)
         return JSONResponse({"error": f"Vision API error: {str(e)}"}, status_code=500)
 
     # Parse the response
@@ -376,6 +430,7 @@ async def upload_scoresheet(
         "headers": headers,
     }
     session_id = _save_session(session_filename, session_data)
+    logger.info("Session saved: %s (status=%s, verified=%d)", session_id, validation["status"], len(validation["verified_moves"]))
 
     return JSONResponse({
         **session_data,
@@ -502,6 +557,182 @@ async def get_session(session_id: str):
     data = json.loads(session_file.read_text())
     data["session_id"] = session_id
     return JSONResponse(data)
+
+
+@app.post("/api/correct")
+async def correct_move(data: str = Form(...)):
+    """Correct a move at a specific position and re-validate from there."""
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    verified_moves = payload.get("verified_moves", [])  # all current verified moves (SAN or UCI)
+    move_index = payload.get("move_index", 0)  # 0-based index into verified_moves
+    new_san = payload.get("new_san", "")
+    session_id = payload.get("session_id", "")
+    headers = payload.get("headers", {})
+    transcription = payload.get("transcription", {})
+
+    if not new_san or move_index < 0 or move_index >= len(verified_moves):
+        return JSONResponse({"error": "Invalid correction"}, status_code=400)
+
+    # Record what the AI originally had
+    old_move = verified_moves[move_index]
+
+    # Replay moves up to the correction point
+    board = chess.Board()
+    replayed = []
+    for i, san in enumerate(verified_moves[:move_index]):
+        try:
+            move = board.parse_san(san)
+            board.push(move)
+            replayed.append(san)
+        except Exception:
+            return JSONResponse({"error": f"Failed to replay move {i}: {san}"}, status_code=400)
+
+    # Record the correction (get SAN of old move for the log)
+    position_fen = board.fen()
+    try:
+        old_parsed = board.parse_san(old_move)
+        old_san_pretty = board.san(old_parsed)
+    except Exception:
+        old_san_pretty = old_move
+
+    # Apply the corrected move
+    try:
+        move = board.parse_san(new_san)
+        board.push(move)
+        corrected_san = _get_san(board, move)
+        replayed.append(corrected_san)
+    except Exception:
+        return JSONResponse({"error": f"Corrected move is illegal: {new_san}"}, status_code=400)
+
+    # Save the correction for learning
+    move_number = (move_index // 2) + 1
+    color = "white" if move_index % 2 == 0 else "black"
+    player = headers.get("white_player") if color == "white" else headers.get("black_player")
+    _save_correction(old_san_pretty, corrected_san, position_fen, player or "unknown", move_number, color)
+
+    # Re-validate remaining moves from transcription after the corrected move
+    all_raw_moves = transcription.get("moves", [])
+    remaining = buildRemainingFromIndex(all_raw_moves, move_index + 1)
+
+    if remaining:
+        continuation = validate_moves(remaining)
+        all_verified = replayed + continuation.get("verified_moves", [])
+
+        result_str = "*"
+        if continuation["status"] == "complete":
+            result_str = headers.get("result") or transcription.get("result") or "*"
+
+        pgn = build_pgn(all_verified, headers, result_str) if all_verified else ""
+
+        response_data = {
+            "validation": {
+                **continuation,
+                "verified_moves": all_verified,
+                "total_verified": len(all_verified),
+            },
+            "pgn": pgn,
+            "headers": headers,
+            "transcription": transcription,
+        }
+    else:
+        result_str = headers.get("result") or transcription.get("result") or "*"
+        pgn = build_pgn(replayed, headers, result_str) if replayed else ""
+
+        response_data = {
+            "validation": {
+                "status": "complete",
+                "verified_moves": replayed,
+                "total_verified": len(replayed),
+                "board_fen": board.fen(),
+            },
+            "pgn": pgn,
+            "headers": headers,
+            "transcription": transcription,
+        }
+
+    # Update session
+    if session_id:
+        session_file = SESSIONS_DIR / f"{session_id}.json"
+        if session_file.exists():
+            existing = json.loads(session_file.read_text())
+            existing.update(response_data)
+            _save_session(f"{session_id}.json", existing)
+            response_data["session_id"] = session_id
+
+    return JSONResponse(response_data)
+
+
+def buildRemainingFromIndex(all_raw_moves: list[dict], half_move_index: int) -> list[dict]:
+    """Build remaining raw moves starting from a half-move index."""
+    remaining = []
+    current_half = 0
+    for entry in all_raw_moves:
+        entry_has_white = "white" in entry
+        entry_has_black = "black" in entry
+
+        if entry_has_white:
+            if current_half == half_move_index:
+                # Start from white's move in this entry
+                remaining.append(entry)
+                current_half += 1
+                if entry_has_black:
+                    current_half += 1
+                continue
+            elif current_half > half_move_index:
+                remaining.append(entry)
+                current_half += 1
+                if entry_has_black:
+                    current_half += 1
+                continue
+            current_half += 1
+
+        if entry_has_black:
+            if current_half == half_move_index:
+                # Start from black's move in this entry
+                remaining.append({"number": entry["number"], "black": entry["black"]})
+                current_half += 1
+                continue
+            elif current_half > half_move_index:
+                remaining.append(entry)
+                current_half += 1
+                continue
+            current_half += 1
+
+    return remaining
+
+
+@app.post("/api/legal-moves")
+async def get_legal_moves(data: str = Form(...)):
+    """Get legal moves at a specific position after replaying moves up to an index."""
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    verified_moves = payload.get("verified_moves", [])
+    move_index = payload.get("move_index", 0)  # position BEFORE this move
+
+    board = chess.Board()
+    for san in verified_moves[:move_index]:
+        try:
+            move = board.parse_san(san)
+            board.push(move)
+        except Exception:
+            return JSONResponse({"error": f"Failed to replay move: {san}"}, status_code=400)
+
+    legal = []
+    for move in board.legal_moves:
+        legal.append({"san": board.san(move), "uci": move.uci()})
+
+    return JSONResponse({
+        "legal_moves": legal,
+        "fen": board.fen(),
+        "current_move": verified_moves[move_index] if move_index < len(verified_moves) else None,
+    })
 
 
 @app.get("/")
