@@ -1,7 +1,10 @@
 import base64
 import json
+import logging
 import os
 import re
+import time
+from datetime import datetime
 from pathlib import Path
 
 import anthropic
@@ -11,9 +14,40 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("chess-pgn")
+
 app = FastAPI()
 
 client = anthropic.Anthropic()
+
+SESSIONS_DIR = Path(__file__).parent / "sessions"
+SESSIONS_DIR.mkdir(exist_ok=True)
+
+
+def _sanitize_name(name: str) -> str:
+    """Sanitize a name for use in a filename."""
+    s = re.sub(r'[^\w\s-]', '', name.strip())
+    s = re.sub(r'\s+', '_', s)
+    return s[:30] or "unknown"
+
+
+def _session_filename(headers: dict) -> str:
+    """Generate a descriptive session filename."""
+    white = _sanitize_name(headers.get("white_player") or "unknown")
+    black = _sanitize_name(headers.get("black_player") or "unknown")
+    now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    return f"{white}_vs_{black}_{now}.json"
+
+
+def _save_session(filename: str, data: dict) -> str:
+    """Save session data to a JSON file. Returns the session id (filename without .json)."""
+    data["updated_at"] = time.time()
+    if "created_at" not in data:
+        data["created_at"] = data["updated_at"]
+    filepath = SESSIONS_DIR / filename
+    filepath.write_text(json.dumps(data, indent=2))
+    return filename.removesuffix(".json")
 
 SYSTEM_PROMPT = """You are a chess scoresheet transcription expert. You will be shown a photograph of a handwritten chess scoresheet.
 
@@ -245,7 +279,11 @@ def build_pgn(moves: list[str], headers: dict, result: str = "*") -> str:
 
 
 @app.post("/api/upload")
-async def upload_scoresheet(file: UploadFile = File(...)):
+async def upload_scoresheet(
+    file: UploadFile = File(...),
+    player_name: str = Form(""),
+    player_color: str = Form(""),
+):
     """Process an uploaded scoresheet image."""
     contents = await file.read()
     if len(contents) > 10 * 1024 * 1024:
@@ -302,6 +340,13 @@ async def upload_scoresheet(file: UploadFile = File(...)):
             status_code=500,
         )
 
+    # Override player names if provided by the user
+    if player_name:
+        if player_color == "white":
+            transcription["white_player"] = player_name
+        elif player_color == "black":
+            transcription["black_player"] = player_name
+
     # Validate moves
     validation = validate_moves(transcription.get("moves", []))
 
@@ -322,11 +367,19 @@ async def upload_scoresheet(file: UploadFile = File(...)):
     if validation["verified_moves"]:
         pgn = build_pgn(validation["verified_moves"], headers, result_str)
 
-    return JSONResponse({
+    # Save session
+    session_filename = _session_filename(headers)
+    session_data = {
         "transcription": transcription,
         "validation": validation,
         "pgn": pgn,
         "headers": headers,
+    }
+    session_id = _save_session(session_filename, session_data)
+
+    return JSONResponse({
+        **session_data,
+        "session_id": session_id,
     })
 
 
@@ -342,6 +395,7 @@ async def resolve_move(data: str = Form(...)):
     chosen_san = payload.get("chosen_san", "")
     remaining_raw = payload.get("remaining_moves", [])  # raw move entries from transcription
     headers = payload.get("headers", {})
+    session_id = payload.get("session_id", "")
 
     # Replay confirmed moves
     board = chess.Board()
@@ -376,7 +430,7 @@ async def resolve_move(data: str = Form(...)):
 
         pgn = build_pgn(all_verified, headers, result_str) if all_verified else ""
 
-        return JSONResponse({
+        response_data = {
             "validation": {
                 **continuation,
                 "verified_moves": all_verified,
@@ -384,12 +438,12 @@ async def resolve_move(data: str = Form(...)):
             },
             "pgn": pgn,
             "headers": headers,
-        })
+        }
     else:
         result_str = headers.get("result") or "*"
         pgn = build_pgn(verified, headers, result_str) if verified else ""
 
-        return JSONResponse({
+        response_data = {
             "validation": {
                 "status": "complete",
                 "verified_moves": verified,
@@ -398,7 +452,56 @@ async def resolve_move(data: str = Form(...)):
             },
             "pgn": pgn,
             "headers": headers,
-        })
+        }
+
+    # Update session file if we have a session_id
+    if session_id:
+        session_file = SESSIONS_DIR / f"{session_id}.json"
+        if session_file.exists():
+            existing = json.loads(session_file.read_text())
+            existing.update(response_data)
+            _save_session(f"{session_id}.json", existing)
+            response_data["session_id"] = session_id
+
+    return JSONResponse(response_data)
+
+
+@app.get("/api/sessions")
+async def list_sessions():
+    """List recent sessions, sorted by most recent first."""
+    sessions = []
+    for f in SESSIONS_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text())
+            sessions.append({
+                "session_id": f.stem,
+                "white_player": (data.get("headers") or {}).get("white_player") or "?",
+                "black_player": (data.get("headers") or {}).get("black_player") or "?",
+                "date": (data.get("headers") or {}).get("date"),
+                "event": (data.get("headers") or {}).get("event"),
+                "total_verified": (data.get("validation") or {}).get("total_verified", 0),
+                "status": (data.get("validation") or {}).get("status", "unknown"),
+                "created_at": data.get("created_at", 0),
+                "updated_at": data.get("updated_at", 0),
+            })
+        except (json.JSONDecodeError, KeyError):
+            continue
+    sessions.sort(key=lambda s: s["updated_at"], reverse=True)
+    return JSONResponse(sessions[:20])
+
+
+@app.get("/api/session/{session_id}")
+async def get_session(session_id: str):
+    """Load a specific session."""
+    # Sanitize to prevent path traversal
+    if "/" in session_id or "\\" in session_id or ".." in session_id:
+        return JSONResponse({"error": "Invalid session ID"}, status_code=400)
+    session_file = SESSIONS_DIR / f"{session_id}.json"
+    if not session_file.exists():
+        return JSONResponse({"error": "Session not found"}, status_code=404)
+    data = json.loads(session_file.read_text())
+    data["session_id"] = session_id
+    return JSONResponse(data)
 
 
 @app.get("/")

@@ -12,7 +12,24 @@
     <h1>♟ Chess Scoresheet → PGN</h1>
     <p class="subtitle">Upload a photo of a handwritten scoresheet. Every move is validated for legality.</p>
 
-    <div id="upload-section">
+    <div id="sessions-section" class="hidden">
+      <h2>Recent Sessions</h2>
+      <div id="sessions-list"></div>
+      <button id="new-session-btn" class="btn btn-primary" style="margin-bottom:1rem">New Scoresheet</button>
+    </div>
+
+    <div id="upload-section" class="hidden">
+      <div id="player-info">
+        <input type="text" id="player-name" placeholder="Player name (optional)" class="text-input">
+        <div id="color-picker">
+          <label class="color-option">
+            <input type="radio" name="player-color" value="white"> White
+          </label>
+          <label class="color-option">
+            <input type="radio" name="player-color" value="black"> Black
+          </label>
+        </div>
+      </div>
       <label for="file-input" class="upload-area" id="upload-area">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Tap to take a photo or choose an image</div>

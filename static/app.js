@@ -1,5 +1,6 @@
 const fileInput = document.getElementById("file-input");
 const uploadArea = document.getElementById("upload-area");
+const uploadSection = document.getElementById("upload-section");
 const previewContainer = document.getElementById("preview-container");
 const previewImg = document.getElementById("preview-img");
 const clearBtn = document.getElementById("clear-btn");
@@ -12,9 +13,121 @@ const verifiedCount = document.getElementById("verified-count");
 const ambiguitySection = document.getElementById("ambiguity-section");
 const ambiguityDetails = document.getElementById("ambiguity-details");
 const transcriptionOutput = document.getElementById("transcription-output");
+const sessionsSection = document.getElementById("sessions-section");
+const sessionsList = document.getElementById("sessions-list");
+const newSessionBtn = document.getElementById("new-session-btn");
+const playerNameInput = document.getElementById("player-name");
 
 let currentFile = null;
-let sessionState = null; // tracks confirmed moves, remaining, headers
+let sessionState = null;
+
+// On page load, check for session in URL or show sessions list
+(async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get("s");
+  if (sid) {
+    await loadSession(sid);
+  } else {
+    await showSessionsList();
+  }
+})();
+
+async function showSessionsList() {
+  try {
+    const resp = await fetch("/api/sessions");
+    const sessions = await resp.json();
+    if (sessions.length === 0) {
+      // No sessions yet, go straight to upload
+      showUploadForm();
+      return;
+    }
+    sessionsList.innerHTML = "";
+    for (const s of sessions) {
+      const div = document.createElement("div");
+      div.className = "session-item";
+      div.dataset.sessionId = s.session_id;
+
+      const isComplete = s.status === "complete";
+      const statusClass = isComplete ? "complete" : "in-progress";
+      const statusText = isComplete ? "Complete" : `${s.total_verified} moves`;
+
+      const date = s.date || "";
+      const event = s.event || "";
+      const meta = [event, date].filter(Boolean).join(" — ");
+
+      const infoDiv = document.createElement("div");
+
+      const playersDiv = document.createElement("div");
+      playersDiv.className = "session-players";
+      playersDiv.textContent = `${s.white_player} vs ${s.black_player}`;
+      infoDiv.appendChild(playersDiv);
+
+      if (meta) {
+        const metaDiv = document.createElement("div");
+        metaDiv.className = "session-meta";
+        metaDiv.textContent = meta;
+        infoDiv.appendChild(metaDiv);
+      }
+
+      const statusSpan = document.createElement("span");
+      statusSpan.className = `session-status ${statusClass}`;
+      statusSpan.textContent = statusText;
+
+      div.appendChild(infoDiv);
+      div.appendChild(statusSpan);
+
+      div.addEventListener("click", () => {
+        window.history.pushState({}, "", `/?s=${s.session_id}`);
+        loadSession(s.session_id);
+      });
+      sessionsList.appendChild(div);
+    }
+    sessionsSection.classList.remove("hidden");
+    uploadSection.classList.add("hidden");
+    results.classList.add("hidden");
+  } catch (err) {
+    // If fetching sessions fails, just show upload
+    showUploadForm();
+  }
+}
+
+function showUploadForm() {
+  sessionsSection.classList.add("hidden");
+  uploadSection.classList.remove("hidden");
+  results.classList.add("hidden");
+}
+
+newSessionBtn.addEventListener("click", () => {
+  showUploadForm();
+});
+
+async function loadSession(sessionId) {
+  sessionsSection.classList.add("hidden");
+  uploadSection.classList.add("hidden");
+  loading.classList.remove("hidden");
+
+  try {
+    const resp = await fetch(`/api/session/${sessionId}`);
+    if (!resp.ok) {
+      alert("Session not found");
+      await showSessionsList();
+      return;
+    }
+    const data = await resp.json();
+    sessionState = {
+      confirmed_moves: (data.validation || {}).verified_moves || [],
+      headers: data.headers || {},
+      transcription: data.transcription,
+      session_id: data.session_id,
+    };
+    displayResults(data);
+  } catch (err) {
+    alert("Error loading session: " + err.message);
+    await showSessionsList();
+  } finally {
+    loading.classList.add("hidden");
+  }
+}
 
 fileInput.addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -47,6 +160,13 @@ transcribeBtn.addEventListener("click", async () => {
   const formData = new FormData();
   formData.append("file", currentFile);
 
+  const playerName = playerNameInput.value.trim();
+  const colorRadio = document.querySelector('input[name="player-color"]:checked');
+  if (playerName) {
+    formData.append("player_name", playerName);
+    formData.append("player_color", colorRadio ? colorRadio.value : "");
+  }
+
   try {
     const resp = await fetch("/api/upload", { method: "POST", body: formData });
     const data = await resp.json();
@@ -54,6 +174,11 @@ transcribeBtn.addEventListener("click", async () => {
     if (data.error) {
       alert("Error: " + data.error);
       return;
+    }
+
+    // Update URL with session ID
+    if (data.session_id) {
+      window.history.pushState({}, "", `/?s=${data.session_id}`);
     }
 
     displayResults(data);
@@ -67,6 +192,8 @@ transcribeBtn.addEventListener("click", async () => {
 
 function displayResults(data) {
   results.classList.remove("hidden");
+  uploadSection.classList.add("hidden");
+  sessionsSection.classList.add("hidden");
 
   // Show PGN
   pgnOutput.textContent = data.pgn || "(no verified moves yet)";
@@ -78,6 +205,7 @@ function displayResults(data) {
     confirmed_moves: v.verified_moves || [],
     headers: data.headers || {},
     transcription: data.transcription,
+    session_id: data.session_id || (sessionState && sessionState.session_id) || "",
   };
 
   // Show transcription
@@ -89,7 +217,7 @@ function displayResults(data) {
   } else {
     ambiguitySection.classList.add("hidden");
     if (v.status === "complete") {
-      verifiedCount.textContent += " ✓ Complete!";
+      verifiedCount.textContent += " - Complete!";
     }
   }
 }
@@ -103,40 +231,86 @@ function showAmbiguity(validation, transcription) {
   const candidates = validation.legal_candidates || [];
   const ctx = validation.context || {};
 
-  let html = `<div class="ambiguity-info">`;
-  html += `<strong>Move ${moveNum} (${color}):</strong> Read as "<code>${escapeHtml(originalText)}</code>"`;
+  // Build ambiguity info
+  const infoDiv = document.createElement("div");
+  infoDiv.className = "ambiguity-info";
+
+  const strong = document.createElement("strong");
+  strong.textContent = `Move ${moveNum} (${color}): `;
+  infoDiv.appendChild(strong);
+
+  infoDiv.appendChild(document.createTextNode('Read as "'));
+  const code = document.createElement("code");
+  code.textContent = originalText;
+  infoDiv.appendChild(code);
+  infoDiv.appendChild(document.createTextNode('"'));
+
+  const br = document.createElement("br");
+  infoDiv.appendChild(br);
 
   if (validation.status === "illegal" && candidates.length === 0) {
-    html += `<br>This reading is <strong>illegal</strong> in the current position.`;
-    html += `<br>No legal moves match the handwriting.`;
+    const illegalStrong = document.createElement("strong");
+    illegalStrong.textContent = "illegal";
+    infoDiv.appendChild(document.createTextNode("This reading is "));
+    infoDiv.appendChild(illegalStrong);
+    infoDiv.appendChild(document.createTextNode(" in the current position."));
+    infoDiv.appendChild(document.createElement("br"));
+    infoDiv.appendChild(document.createTextNode("No legal moves match the handwriting."));
   } else if (validation.status === "illegal") {
-    html += `<br>This reading is <strong>illegal</strong>, but these legal moves might match:`;
+    const illegalStrong = document.createElement("strong");
+    illegalStrong.textContent = "illegal";
+    infoDiv.appendChild(document.createTextNode("This reading is "));
+    infoDiv.appendChild(illegalStrong);
+    infoDiv.appendChild(document.createTextNode(", but these legal moves might match:"));
   } else {
-    html += `<br>This move is <strong>ambiguous</strong>. Pick the correct one:`;
+    const ambigStrong = document.createElement("strong");
+    ambigStrong.textContent = "ambiguous";
+    infoDiv.appendChild(document.createTextNode("This move is "));
+    infoDiv.appendChild(ambigStrong);
+    infoDiv.appendChild(document.createTextNode(". Pick the correct one:"));
   }
-  html += `</div>`;
+
+  // Clear and build
+  ambiguityDetails.textContent = "";
+  ambiguityDetails.appendChild(infoDiv);
 
   // Candidate buttons
   if (candidates.length > 0) {
     for (const c of candidates) {
-      html += `<button class="btn-candidate" data-san="${escapeHtml(c.san)}" data-move-number="${moveNum}" data-color="${color}">
-        <span class="san">${escapeHtml(c.san)}</span>
-        <span class="detail">read as "${escapeHtml(c.original_text)}" · UCI: ${escapeHtml(c.uci)}</span>
-      </button>`;
+      const btn = document.createElement("button");
+      btn.className = "btn-candidate";
+      btn.dataset.san = c.san;
+      btn.dataset.moveNumber = moveNum;
+      btn.dataset.color = color;
+
+      const sanSpan = document.createElement("span");
+      sanSpan.className = "san";
+      sanSpan.textContent = c.san;
+
+      const detailSpan = document.createElement("span");
+      detailSpan.className = "detail";
+      detailSpan.textContent = `read as "${c.original_text}" \u00b7 UCI: ${c.uci}`;
+
+      btn.appendChild(sanSpan);
+      btn.appendChild(document.createTextNode(" "));
+      btn.appendChild(detailSpan);
+
+      btn.addEventListener("click", () => resolveMove(c.san, moveNum, color));
+      ambiguityDetails.appendChild(btn);
     }
   }
 
   // Show legal moves for context
   if (ctx.legal_moves) {
-    html += `<div class="legal-moves-hint"><strong>All legal moves in this position:</strong><br>${ctx.legal_moves.join(", ")}</div>`;
+    const hintDiv = document.createElement("div");
+    hintDiv.className = "legal-moves-hint";
+    const hintStrong = document.createElement("strong");
+    hintStrong.textContent = "All legal moves in this position:";
+    hintDiv.appendChild(hintStrong);
+    hintDiv.appendChild(document.createElement("br"));
+    hintDiv.appendChild(document.createTextNode(ctx.legal_moves.join(", ")));
+    ambiguityDetails.appendChild(hintDiv);
   }
-
-  ambiguityDetails.innerHTML = html;
-
-  // Wire up candidate buttons
-  ambiguityDetails.querySelectorAll(".btn-candidate").forEach((btn) => {
-    btn.addEventListener("click", () => resolveMove(btn.dataset.san, parseInt(btn.dataset.moveNumber), btn.dataset.color));
-  });
 }
 
 async function resolveMove(san, moveNumber, color) {
@@ -156,6 +330,7 @@ async function resolveMove(san, moveNumber, color) {
       ...sessionState.headers,
       result: sessionState.transcription.result,
     },
+    session_id: sessionState.session_id || "",
   };
 
   try {
@@ -182,7 +357,7 @@ async function resolveMove(san, moveNumber, color) {
     } else {
       ambiguitySection.classList.add("hidden");
       if (v.status === "complete") {
-        verifiedCount.textContent += " ✓ Complete!";
+        verifiedCount.textContent += " - Complete!";
       }
     }
   } catch (err) {
@@ -244,3 +419,14 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// Handle browser back/forward
+window.addEventListener("popstate", async () => {
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get("s");
+  if (sid) {
+    await loadSession(sid);
+  } else {
+    await showSessionsList();
+  }
+});
