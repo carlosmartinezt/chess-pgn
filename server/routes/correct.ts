@@ -69,7 +69,7 @@ export async function correctMove(req: Request, res: Response) {
   let responseData: Record<string, unknown>;
 
   if (remaining.length > 0) {
-    const continuation = validateMoves(remaining as Parameters<typeof validateMoves>[0]);
+    const continuation = validateMoves(remaining as Parameters<typeof validateMoves>[0], chess);
     const allVerified = [...replayed, ...continuation.verified_moves];
     let resultStr = "*";
     if (continuation.status === "complete") {

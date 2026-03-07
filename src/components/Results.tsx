@@ -117,7 +117,12 @@ export function Results({ data, sessionState, onUpdate, onLoading }: Props) {
       )}
 
       {(v.status === "ambiguous" || v.status === "illegal") && selectedMoveIndex === null && (
-        <AmbiguityPanel validation={v} orientation={orientation} onResolve={handleResolve} />
+        <AmbiguityPanel
+          validation={v}
+          orientation={orientation}
+          verifiedMoves={sessionState.confirmed_moves}
+          onResolve={handleResolve}
+        />
       )}
 
       <div id="transcription-section">

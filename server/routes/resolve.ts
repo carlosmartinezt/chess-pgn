@@ -38,7 +38,7 @@ export async function resolveMove(req: Request, res: Response) {
   let responseData: Record<string, unknown>;
 
   if (remainingRaw.length > 0) {
-    const continuation = validateMoves(remainingRaw);
+    const continuation = validateMoves(remainingRaw, chess);
     const allVerified = [...verified, ...continuation.verified_moves];
     let resultStr = "*";
     if (continuation.status === "complete") resultStr = headers.result || "*";

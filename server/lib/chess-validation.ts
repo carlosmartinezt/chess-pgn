@@ -53,8 +53,8 @@ export interface ValidationResult {
   context?: BoardContext;
 }
 
-export function validateMoves(movesData: MoveEntry[]): ValidationResult {
-  const chess = new Chess();
+export function validateMoves(movesData: MoveEntry[], startingChess?: Chess): ValidationResult {
+  const chess = startingChess || new Chess();
   const verifiedMoves: string[] = [];
 
   for (const moveEntry of movesData) {
