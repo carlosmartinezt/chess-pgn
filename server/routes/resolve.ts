@@ -4,12 +4,7 @@ import { validateMoves, buildPgn } from "../lib/chess-validation.js";
 import { saveSession, loadSession } from "../lib/sessions.js";
 
 export async function resolveMove(req: Request, res: Response) {
-  let payload: Record<string, unknown>;
-  try {
-    payload = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body;
-  } catch {
-    return res.status(400).json({ error: "Invalid JSON" });
-  }
+  const payload = req.body as Record<string, unknown>;
 
   const confirmedMoves = (payload.confirmed_moves as string[]) || [];
   const chosenSan = (payload.chosen_san as string) || "";

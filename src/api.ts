@@ -21,22 +21,28 @@ export async function uploadScoresheet(file: File, playerName?: string, playerCo
 }
 
 export async function resolveMove(payload: Record<string, unknown>) {
-  const formData = new FormData();
-  formData.append("data", JSON.stringify(payload));
-  const resp = await fetch("/api/resolve", { method: "POST", body: formData });
+  const resp = await fetch("/api/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
   return resp.json();
 }
 
 export async function correctMove(payload: Record<string, unknown>) {
-  const formData = new FormData();
-  formData.append("data", JSON.stringify(payload));
-  const resp = await fetch("/api/correct", { method: "POST", body: formData });
+  const resp = await fetch("/api/correct", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
   return resp.json();
 }
 
 export async function fetchLegalMoves(verifiedMoves: string[], moveIndex: number) {
-  const formData = new FormData();
-  formData.append("data", JSON.stringify({ verified_moves: verifiedMoves, move_index: moveIndex }));
-  const resp = await fetch("/api/legal-moves", { method: "POST", body: formData });
+  const resp = await fetch("/api/legal-moves", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ verified_moves: verifiedMoves, move_index: moveIndex }),
+  });
   return resp.json();
 }
