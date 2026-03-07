@@ -2,9 +2,8 @@ import { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { Chess } from "chess.js";
 
-const client = new Anthropic();
-
 export async function suggestMove(req: Request, res: Response) {
+  const client = new Anthropic();
   const payload = req.body as Record<string, unknown>;
 
   const verifiedMoves = (payload.verified_moves as string[]) || [];

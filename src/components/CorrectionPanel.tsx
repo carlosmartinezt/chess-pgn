@@ -70,6 +70,16 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, totalMov
         Move {moveNum} ({color}): <strong>{currentMove}</strong>
       </div>
 
+      <div className="review-nav">
+        <button className="btn btn-secondary" onClick={onPrev} disabled={isFirst}>&larr; Prev</button>
+        <span className="review-nav-label">
+          {currentMove} — correct? Drag to fix, or skip
+        </span>
+        <button className="btn btn-secondary" onClick={isLast ? onCancel : onNext}>
+          {isLast ? "Done" : "Next \u2192"}
+        </button>
+      </div>
+
       {fen && (
         <div className="board-container">
           <Chessboard
@@ -81,16 +91,6 @@ export function CorrectionPanel({ moveIndex, sessionState, orientation, totalMov
           />
         </div>
       )}
-
-      <div className="review-nav">
-        <button className="btn btn-secondary" onClick={onPrev} disabled={isFirst}>&larr; Prev</button>
-        <span className="review-nav-label">
-          {currentMove} — correct? Drag to fix, or skip
-        </span>
-        <button className="btn btn-secondary" onClick={isLast ? onCancel : onNext}>
-          {isLast ? "Done" : "Next \u2192"}
-        </button>
-      </div>
 
       <div className="correction-input-row">
         <input
