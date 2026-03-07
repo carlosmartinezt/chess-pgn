@@ -80,6 +80,7 @@ export async function uploadScoresheet(req: Request, res: Response) {
     black_player: transcription.black_player as string,
     date: transcription.date as string,
     section: transcription.section as string,
+    user_color: playerColor || undefined,
   };
 
   let resultStr = (transcription.result as string) || "*";

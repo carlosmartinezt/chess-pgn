@@ -27,11 +27,17 @@ interface LegalCandidate {
   uci: string;
 }
 
+interface LegalMoveInfo {
+  san: string;
+  uci: string;
+}
+
 interface BoardContext {
   fen: string;
   side_to_move: string;
   legal_moves_count: number;
   legal_moves: string[];
+  legal_moves_verbose: LegalMoveInfo[];
   in_check: boolean;
   move_number: number;
 }
@@ -176,12 +182,13 @@ function similarity(a: string, b: string): number {
 }
 
 function boardContext(chess: Chess): BoardContext {
-  const legalMoves = chess.moves();
+  const verbose = chess.moves({ verbose: true });
   return {
     fen: chess.fen(),
     side_to_move: chess.turn() === "w" ? "white" : "black",
-    legal_moves_count: legalMoves.length,
-    legal_moves: legalMoves,
+    legal_moves_count: verbose.length,
+    legal_moves: verbose.map((m) => m.san),
+    legal_moves_verbose: verbose.map((m) => ({ san: m.san, uci: moveToUci(m) })),
     in_check: chess.inCheck(),
     move_number: Math.ceil(chess.moveNumber()),
   };

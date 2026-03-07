@@ -29,6 +29,7 @@ export interface Validation {
     side_to_move: string;
     legal_moves_count: number;
     legal_moves: string[];
+    legal_moves_verbose?: Array<{ san: string; uci: string }>;
     in_check: boolean;
     move_number: number;
   };
@@ -41,6 +42,7 @@ export interface Headers {
   date?: string | null;
   section?: string | null;
   result?: string | null;
+  user_color?: string | null;
 }
 
 export interface Transcription {

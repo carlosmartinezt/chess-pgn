@@ -361,6 +361,13 @@ h2 {
 
 .ambiguity-info strong { color: #e65100; }
 
+.candidates-label {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 0.4rem;
+  margin-top: 0.5rem;
+}
+
 .legal-moves-hint {
   background: #f5f5f5;
   border-radius: 6px;
@@ -415,6 +422,19 @@ summary {
   color: #666;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* Chessboard */
+.board-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 0.75rem auto;
+}
+
+.board-container .cg-wrap {
+  width: 100%;
+  padding-bottom: 100%;
+  position: relative;
 }
 
 /* Utilities */

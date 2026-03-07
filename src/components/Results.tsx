@@ -17,6 +17,10 @@ export function Results({ data, sessionState, onUpdate, onLoading }: Props) {
   const v = data.validation;
   const isComplete = v.status === "complete";
 
+  // Board orientation: show from the user's perspective (default white)
+  const orientation: "white" | "black" =
+    sessionState.headers.user_color === "black" ? "black" : "white";
+
   function handleCopyPgn() {
     const moves = v.verified_moves || [];
     if (moves.length === 0) {
@@ -105,6 +109,7 @@ export function Results({ data, sessionState, onUpdate, onLoading }: Props) {
         <CorrectionPanel
           moveIndex={selectedMoveIndex}
           sessionState={sessionState}
+          orientation={orientation}
           onDone={handleCorrectionDone}
           onCancel={() => setSelectedMoveIndex(null)}
           onLoading={onLoading}
@@ -112,7 +117,7 @@ export function Results({ data, sessionState, onUpdate, onLoading }: Props) {
       )}
 
       {(v.status === "ambiguous" || v.status === "illegal") && selectedMoveIndex === null && (
-        <AmbiguityPanel validation={v} onResolve={handleResolve} />
+        <AmbiguityPanel validation={v} orientation={orientation} onResolve={handleResolve} />
       )}
 
       <div id="transcription-section">

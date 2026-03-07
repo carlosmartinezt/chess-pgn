@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchLegalMoves, correctMove } from "../api";
+import { Chessboard } from "./Chessboard";
 import type { SessionState, SessionData } from "../types";
 
 interface LegalMove {
@@ -10,13 +11,15 @@ interface LegalMove {
 interface Props {
   moveIndex: number;
   sessionState: SessionState;
+  orientation: "white" | "black";
   onDone: (data: SessionData) => void;
   onCancel: () => void;
   onLoading: (loading: boolean) => void;
 }
 
-export function CorrectionPanel({ moveIndex, sessionState, onDone, onCancel, onLoading }: Props) {
+export function CorrectionPanel({ moveIndex, sessionState, orientation, onDone, onCancel, onLoading }: Props) {
   const [legalMoves, setLegalMoves] = useState<LegalMove[]>([]);
+  const [fen, setFen] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
 
   const moveNum = Math.floor(moveIndex / 2) + 1;
@@ -25,7 +28,10 @@ export function CorrectionPanel({ moveIndex, sessionState, onDone, onCancel, onL
 
   useEffect(() => {
     fetchLegalMoves(sessionState.confirmed_moves, moveIndex).then((data) => {
-      if (!data.error) setLegalMoves(data.legal_moves || []);
+      if (!data.error) {
+        setLegalMoves(data.legal_moves || []);
+        setFen(data.fen || null);
+      }
     });
   }, [moveIndex, sessionState.confirmed_moves]);
 
@@ -56,8 +62,20 @@ export function CorrectionPanel({ moveIndex, sessionState, onDone, onCancel, onL
     <div id="correction-section">
       <h2>Correct Move</h2>
       <div className="ambiguity-info">
-        Move {moveNum} ({color}): <strong>{currentMove}</strong> — tap a legal move below to correct it
+        Move {moveNum} ({color}): <strong>{currentMove}</strong> — drag a piece on the board or tap a move below
       </div>
+
+      {fen && (
+        <div className="board-container">
+          <Chessboard
+            fen={fen}
+            orientation={orientation}
+            turnColor={color as "white" | "black"}
+            legalMoves={legalMoves}
+            onMove={submit}
+          />
+        </div>
+      )}
 
       <div className="correction-input-row">
         <input
