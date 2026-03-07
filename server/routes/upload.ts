@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import Anthropic from "@anthropic-ai/sdk";
 import { validateMoves, buildPgn } from "../lib/chess-validation.js";
 import { sessionFilename, saveSession, buildSystemPrompt } from "../lib/sessions.js";
+import { getAnthropicClient } from "../lib/anthropic-client.js";
 
-const client = new Anthropic();
+const client = getAnthropicClient();
 
 export async function uploadScoresheet(req: Request, res: Response) {
   const file = req.file;

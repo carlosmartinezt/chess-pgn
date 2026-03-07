@@ -17,12 +17,14 @@ chess-pgn/
   server/                   # Express backend (TypeScript)
     index.ts                # Entry point, route setup, static file serving
     lib/
+      anthropic-client.ts   # Shared Anthropic SDK client (reads OAuth token from ~/.claude/.credentials.json)
       chess-validation.ts   # Core validation engine (validateMoves, tryMove, fuzzyMatch, buildPgn)
       sessions.ts           # Session file I/O, corrections, system prompt builder
     routes/
       upload.ts             # POST /api/upload — image → Claude Vision → validation → PGN
       resolve.ts            # POST /api/resolve — resolve ambiguous/illegal move + continue
       correct.ts            # POST /api/correct — correct a verified move + re-validate remaining
+      suggest.ts            # POST /api/suggest — AI suggests most likely move for ambiguous text
       legal-moves.ts        # POST /api/legal-moves — get legal moves at a position
       sessions.ts           # GET /api/sessions, GET /api/session/:id
 

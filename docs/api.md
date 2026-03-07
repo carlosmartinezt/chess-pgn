@@ -56,6 +56,22 @@ Correct an already-verified move and re-validate the rest.
 - Updates the transcription's move text to the corrected value
 - Saves updated session to disk
 
+## POST /api/suggest
+
+Ask AI to suggest the most likely intended move when handwriting is ambiguous or illegal.
+
+**Content-Type**: `application/json`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `verified_moves` | string[] | All verified moves so far |
+| `move_index` | number | Position of the problem move (half-move index) |
+| `original_text` | string | The OCR text that was read from the scoresheet |
+
+**Response**: `{ suggestion: string, reason: string }`
+
+**Flow**: Replays verified moves to get the FEN, then asks Claude which legal move most likely matches the handwritten text, considering visual similarity of characters and common chess patterns.
+
 ## POST /api/legal-moves
 
 Get all legal moves at a given position.

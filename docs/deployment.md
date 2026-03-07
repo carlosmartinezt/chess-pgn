@@ -61,9 +61,19 @@ systemctl --user restart chess-pgn
 
 ## Environment Variables
 
-`.env` file (gitignored):
-- `ANTHROPIC_API_KEY` — Anthropic API key (OAuth token from `~/.claude/.credentials.json`)
 - `PORT` — Server port (optional, defaults to 8701)
+
+### Anthropic API Authentication
+
+The server reads the OAuth token from `~/.claude/.credentials.json` (managed by Claude Code). This token is refreshed automatically when you run `claude login`.
+
+The helper `server/lib/anthropic-client.ts` reads the token fresh on each request, so a `claude login` refresh takes effect without restarting the server. If the credentials file is missing, it falls back to the `ANTHROPIC_API_KEY` env var from `.env`.
+
+**If you get 401 "invalid x-api-key" errors**, run:
+```bash
+claude login
+```
+Then retry — no restart needed.
 
 ## Vite Dev Proxy
 

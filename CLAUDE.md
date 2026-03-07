@@ -33,6 +33,7 @@ No tests or linting configured.
 Node.js Express backend + React frontend, built with Vite. No database — sessions stored as JSON files.
 
 - **Vision OCR**: Anthropic Claude API (claude-sonnet-4-6) transcribes photos into structured JSON
+- **Auth**: OAuth token read from `~/.claude/.credentials.json` (managed by `claude login`); falls back to `ANTHROPIC_API_KEY` env var
 - **Move validation**: chess.js replays moves sequentially, checking legality
 - **Interactive board**: chessground (Lichess board library) for move correction
 - **Deployment**: systemd user service on port 8701, behind Caddy reverse proxy
@@ -53,12 +54,13 @@ Detailed documentation in `docs/`:
 ## Core Flow
 
 1. **Upload** (`POST /api/upload`): Image → Claude Vision → JSON transcription → sequential move validation → PGN
-2. **Resolve** (`POST /api/resolve`): User picks the correct move from board/suggestions → server continues validation
-3. **Correct** (`POST /api/correct`): User corrects a verified move → re-validates remaining → updates transcription
+2. **Suggest** (`POST /api/suggest`): AI suggests the most likely intended move for ambiguous/illegal text
+3. **Resolve** (`POST /api/resolve`): User picks the correct move from board/suggestions → server continues validation
+4. **Correct** (`POST /api/correct`): User corrects a verified move → re-validates remaining → updates transcription
 
 ## Important Rules
 
 - Never auto-correct moves — always ask the user when ambiguous
 - Stop at first ambiguous/illegal move (don't skip ahead)
 - Corrections must update the transcription (so re-validation from scratch works)
-- The `.env` file contains the Anthropic API key (gitignored)
+- API auth reads from `~/.claude/.credentials.json` first (run `claude login` to refresh); falls back to `.env`
