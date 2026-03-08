@@ -15,10 +15,11 @@ Raw transcription moves
         → tryMove(chess, moveData)
           1. Normalize SAN (fix castling notation, strip punctuation)
           2. Try primary reading on the board
-          3. Try each alternative reading
-          4. Fuzzy match against all legal moves (similarity >= 0.7)
-          5. If exactly 1 candidate + confidence "clear" → auto-accept
-          6. Otherwise → return "ambiguous" or "illegal" with candidates
+          3. Try case-correcting piece letter (e.g., "bxe2" → "Bxe2")
+          4. Try each alternative reading
+          5. Fuzzy match against all legal moves (similarity >= 0.7)
+          6. If exactly 1 candidate + confidence "clear" → auto-accept
+          7. Otherwise → return "ambiguous" or "illegal" with candidates
 ```
 
 ## Key Functions

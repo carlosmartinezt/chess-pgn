@@ -102,6 +102,20 @@ function tryMove(chess: Chess, moveData: MoveData): TryMoveResult {
     // not valid
   }
 
+  // Common OCR error: lowercase piece letter (e.g., "bxe2" instead of "Bxe2")
+  // Only try when the original is illegal — won't break valid pawn moves
+  if (/^[bnrqk]/.test(normalized)) {
+    const capitalized = normalized[0].toUpperCase() + normalized.slice(1);
+    try {
+      const move = chess.move(capitalized);
+      if (move) {
+        return { status: "ok", san: move.san };
+      }
+    } catch {
+      // not valid either
+    }
+  }
+
   // Try alternatives
   const legalCandidates: LegalCandidate[] = [];
   const allAttempts = [...new Set([text, ...alternatives])];

@@ -27,6 +27,11 @@
 **Fix**: Changed to use `_get_san(board, move)`.
 **File**: `app.py` (legacy, now ported correctly to Node.js)
 
+### Lowercase piece letters flagged as ambiguous
+**Problem**: OCR sometimes reads uppercase piece letters as lowercase (e.g., `bxe2` instead of `Bxe2`). chess.js interprets lowercase `b` as b-file pawn, which is illegal. The fuzzy matcher would find the correct move, but if OCR confidence was `"unclear"` or multiple alternatives existed, it would flag as ambiguous instead of auto-resolving.
+**Fix**: After the primary move fails, try capitalizing the first letter as a piece (`b→B`, `n→N`, `r→R`, `q→Q`, `k→K`). Only fires when the lowercase version is illegal, so valid pawn moves are unaffected.
+**File**: `server/lib/chess-validation.ts`
+
 ## Known Limitations
 
 - No tests or linting configured
